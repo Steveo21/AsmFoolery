@@ -1,0 +1,36 @@
+#include <string.h>
+
+void *GetModuleBaseAddress(const wchar_t *moduleName) {
+    void *moduleBase = NULL;
+
+    asm(
+        "mov rax, gs:[0x60];"           // PEB
+        "mov rax, [rax + 0x18];"        // PEB_LDR_DATA
+        "mov rax, [rax + 0x10];"        // InMemoryOrderModuleList
+        "next_module:"
+        "mov rbx, [rax + 0x20];"        // LDR_DATA_TABLE_ENTRY->DllBase
+        "mov rcx, [rax + 0x50];"        // LDR_DATA_TABLE_ENTRY->BaseDllName.Buffer
+        "mov rdx, [rax + 0x48];"        // LDR_DATA_TABLE_ENTRY->BaseDllName.Length
+        "shr rdx, 1;"                   // Convert length in bytes to length in WCHARs
+        "cmp rdx, %[len];"              // Compare length with moduleName length
+        "jne not_this_module;"          // If not equal, continue to next module
+        "lea rdx, [rip + module_name];" // Address of module_name
+        "repe cmpsw;"                   // Compare wide strings
+        "jne not_this_module;"          // If not equal, continue to next module
+        "mov %[moduleBase], rbx;"       // Found the module, store base address
+        "jmp done;"
+        "not_this_module:"
+        "mov rax, [rax];"               // Next module in the list
+        "jmp next_module;"
+        "module_name: .asciz \"%S\";"   // Inline string for module name (wide string)
+        "done:"
+        : [moduleBase] "=r" (moduleBase)
+        : [len] "r" (wcslen(moduleName))
+        : "rax", "rbx", "rcx", "rdx"
+    );
+
+    return moduleBase;
+}
+
+// Usage example
+void *hKernel32 = GetModuleBaseAddress(L"KERNEL32.DLL");
