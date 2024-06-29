@@ -1,0 +1,11 @@
+asm(
+    "mov rax, gs:[0x60];"           // PEB
+    "mov rax, [rax + 0x18];"        // PEB_LDR_DATA
+    "mov rax, [rax + 0x10];"        // InMemoryOrderModuleList
+    "mov rax, [rax];"               // 0th index item in list (ntdll)
+    "mov rax, [rax];"               // 1st index item in list (kernel32)
+    "mov %0, [rax + 0x30];"         // kernel32 baseAddress
+    :"=r"(hKernel32)
+    :
+    :"rax"
+);
